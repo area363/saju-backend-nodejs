@@ -36,7 +36,7 @@ router.patch(
   [
     apiLimiter,
     authJwt.verifyToken(JWT_SECRET),
-    param("id").not().isEmpty().isInt(),
+    param("id").not().isEmpty().isMongoId(),
     body("name").not().isEmpty().isString().isLength({ min: 2, max: 30 }),
   ],
   groupController.updateGroup
@@ -45,7 +45,7 @@ router.patch(
 //그룹 삭제
 router.delete(
   "/:id",
-  [apiLimiter, authJwt.verifyToken(JWT_SECRET), param("id").not().isEmpty().isInt()],
+  [apiLimiter, authJwt.verifyToken(JWT_SECRET), param("id").not().isEmpty().isMongoId()],
   groupController.deleteGroup
 );
 

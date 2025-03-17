@@ -48,7 +48,7 @@ router.get(
 //멤버 삭제
 router.delete(
   "/:id",
-  [apiLimiter, authJwt.verifyToken(JWT_SECRET), param("id").not().isEmpty().isInt()],
+  [apiLimiter, authJwt.verifyToken(JWT_SECRET), param("id").not().isEmpty().isMongoId()],
   memberController.deleteMember
 );
 

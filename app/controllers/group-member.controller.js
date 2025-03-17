@@ -1,17 +1,16 @@
-const { GroupMember, Group, Member, Sequelize } = require("../models");
+const { GroupMember, Group, Member } = require("../models");
 const { validationResult } = require("express-validator");
 
 /**
- * 그룹에 멤버 추가
+ * 그룹에 멤버 추가 (Add Member to Group)
  */
 exports.addMemberToGroup = async (req, res, next) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
-    const result = errors.array();
     return res.status(400).send({
       statusCode: 400,
       message: "잘못된 요청값 입니다.",
-      error: result,
+      error: errors.array(),
     });
   }
 
@@ -20,12 +19,7 @@ exports.addMemberToGroup = async (req, res, next) => {
   const userId = req.userId;
 
   try {
-    const group = await Group.findOne({
-      where: {
-        id: groupId,
-        userId: userId,
-      },
-    });
+    const group = await Group.findOne({ _id: groupId, userId });
 
     if (!group) {
       return res.status(403).send({
@@ -34,12 +28,7 @@ exports.addMemberToGroup = async (req, res, next) => {
       });
     }
 
-    const member = await Member.findOne({
-      where: {
-        id: memberId,
-        userId: userId,
-      },
-    });
+    const member = await Member.findOne({ _id: memberId, userId });
 
     if (!member) {
       return res.status(403).send({
@@ -48,24 +37,17 @@ exports.addMemberToGroup = async (req, res, next) => {
       });
     }
 
-    const groupMember = await GroupMember.findOne({
-      where: {
-        groupId,
-        memberId,
-      },
-    });
+    const existingGroupMember = await GroupMember.findOne({ groupId, memberId });
 
-    if (groupMember) {
+    if (existingGroupMember) {
       return res.status(409).send({
         statusCode: 409,
         message: "해당 그룹에 같은 멤버가 존재합니다.",
       });
     }
 
-    await GroupMember.create({
-      groupId,
-      memberId,
-    });
+    const groupMember = new GroupMember({ groupId, memberId });
+    await groupMember.save();
 
     return res.status(201).send({
       statusCode: 201,
@@ -76,45 +58,26 @@ exports.addMemberToGroup = async (req, res, next) => {
   }
 };
 
-const getPagination = (page, size) => {
-  const limit = size ? +size : 10;
-  const offset = page ? page * limit : 0;
-
-  return { limit, offset };
-};
-
-const getPagingData = async (data, page, limit) => {
-  const { count: totalItems, rows: memberList } = data;
-  const currentPage = page ? +page : 0;
-  const totalPages = Math.ceil(totalItems / limit);
-
-  return { totalItems, totalPages, currentPage, memberList };
-};
-
 /**
- * 그룹 별 멤버 리스트
+ * 그룹 별 멤버 리스트 (Get Group Member List)
  */
 exports.getGroupMemberList = async (req, res, next) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
-    const result = errors.array();
     return res.status(400).send({
       statusCode: 400,
       message: "잘못된 요청값 입니다.",
-      error: result,
+      error: errors.array(),
     });
   }
 
-  const page = req.query.page !== "NaN" ? req.query.page : 0;
-  const size = req.query.size;
-  const { limit, offset } = getPagination(page, size);
+  const page = parseInt(req.query.page) || 0;
+  const size = parseInt(req.query.size) || 10;
   const userId = req.userId;
   const groupId = req.params.groupId;
 
   try {
-    const group = await Group.findOne({
-      where: { userId: userId, id: groupId },
-    });
+    const group = await Group.findOne({ _id: groupId, userId });
 
     if (!group) {
       return res.status(403).send({
@@ -123,56 +86,40 @@ exports.getGroupMemberList = async (req, res, next) => {
       });
     }
 
-    const groupMember = await GroupMember.findAndCountAll({
-      where: { groupId: groupId },
-      include: [
-        {
-          model: Member,
-          attributes: [
-            "id",
-            "type",
-            "nickname",
-            "birthday",
-            "birthdayType",
-            "gender",
-            "time",
-            [
-              Sequelize.literal("(SELECT YEAR(CURRENT_DATE) - YEAR(birthday) + 1 FROM members where id = Member.id)"),
-              "age", //나이
-            ],
-            "createdAt",
-          ],
-        },
-      ],
-      order: [["createdAt", "DESC"]],
-      limit,
-      offset,
-    });
+    const totalItems = await GroupMember.countDocuments({ groupId });
 
-    //map으로 처리
-    const rows = groupMember["rows"].map((groupMember) => {
-      const birthYear = Number(String(groupMember.Member.birthday).split("-")[0]);
+    const groupMembers = await GroupMember.find({ groupId })
+      .populate({
+        path: "member",
+        select: "id type nickname birthday birthdayType gender time createdAt",
+      })
+      .sort({ createdAt: -1 })
+      .skip(page * size)
+      .limit(size);
+
+    const members = groupMembers.map((gm) => {
+      const birthYear = new Date(gm.member.birthday).getFullYear();
       return {
-        id: groupMember.Member.id,
-        type: groupMember.Member.type,
-        nickname: groupMember.Member.nickname,
-        gender: groupMember.Member.gender,
-        birthdayType: groupMember.Member.birthdayType,
-        birthday: groupMember.Member.birthday,
-        time: groupMember.Member.time,
+        id: gm.member._id,
+        type: gm.member.type,
+        nickname: gm.member.nickname,
+        gender: gm.member.gender,
+        birthdayType: gm.member.birthdayType,
+        birthday: gm.member.birthday,
+        time: gm.member.time,
         age: new Date().getFullYear() - birthYear + 1,
-        createdAt: groupMember.Member.createdAt,
+        createdAt: gm.member.createdAt,
       };
     });
-
-    const members = await getPagingData({ count: groupMember["count"], rows }, page, limit);
 
     return res.status(200).send({
       statusCode: 200,
       message: "그룹별 멤버 리스트 성공",
       data: {
-        group: group,
-        members: members,
+        totalItems,
+        totalPages: Math.ceil(totalItems / size),
+        currentPage: page,
+        members,
       },
     });
   } catch (err) {
@@ -181,16 +128,15 @@ exports.getGroupMemberList = async (req, res, next) => {
 };
 
 /**
- * 그룹에서 멤버 제거
+ * 그룹에서 멤버 제거 (Remove Member from Group)
  */
 exports.removeMemberFromGroup = async (req, res, next) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
-    const result = errors.array();
     return res.status(400).send({
       statusCode: 400,
       message: "잘못된 요청값 입니다.",
-      error: result,
+      error: errors.array(),
     });
   }
 
@@ -199,9 +145,7 @@ exports.removeMemberFromGroup = async (req, res, next) => {
   const memberId = req.params.memberId;
 
   try {
-    const group = await Group.findOne({
-      where: { userId: userId, id: groupId },
-    });
+    const group = await Group.findOne({ _id: groupId, userId });
 
     if (!group) {
       return res.status(403).send({
@@ -210,9 +154,7 @@ exports.removeMemberFromGroup = async (req, res, next) => {
       });
     }
 
-    const member = await Member.findOne({
-      where: { userId: userId, id: memberId },
-    });
+    const member = await Member.findOne({ _id: memberId, userId });
 
     if (!member) {
       return res.status(403).send({
@@ -221,9 +163,7 @@ exports.removeMemberFromGroup = async (req, res, next) => {
       });
     }
 
-    await GroupMember.destroy({
-      where: { groupId, memberId },
-    });
+    await GroupMember.deleteOne({ groupId, memberId });
 
     return res.status(200).send({
       statusCode: 200,

@@ -1,30 +1,25 @@
-const { Member, MemberManse, Sequelize } = require("../models");
+const { Member, MemberManse } = require("../models");
 const SajuService = require("../commons/birth-to-saju.js");
 const { validationResult } = require("express-validator");
 
 /**
- * 멤버 추가
+ * 멤버 추가 (Add Member)
  */
 exports.addMember = async (req, res, next) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
-    const result = errors.array();
     return res.status(400).send({
       statusCode: 400,
       message: "잘못된 요청값 입니다.",
-      error: result,
+      error: errors.array(),
     });
   }
 
-  const nickname = req.body.nickname;
-  const gender = req.body.gender;
-  const birthdayType = req.body.birthdayType;
-  const birthday = await String(req.body.birthday).replace(/(\d{4})(\d{2})(\d{2})/g, "$1-$2-$3");
-  const time = req.body.time ? String(req.body.time).replace(/(\d{2})(\d{2})/g, "$1:$2") : null;
+  const { nickname, gender, birthdayType, birthday, time } = req.body;
   const userId = req.userId;
 
   try {
-    const member = await Member.create({
+    const member = new Member({
       userId,
       nickname,
       gender,
@@ -33,8 +28,9 @@ exports.addMember = async (req, res, next) => {
       time,
       type: "MEMBER",
     });
+    await member.save();
 
-    //생년월일시를 사주로 변환
+    // 생년월일시를 사주로 변환
     await SajuService.convertBirthtimeToSaju(member);
 
     return res.status(201).send({
@@ -46,62 +42,38 @@ exports.addMember = async (req, res, next) => {
   }
 };
 
-const getPagination = (page, size) => {
-  const limit = size ? +size : 10;
-  const offset = page ? page * limit : 0;
-
-  return { limit, offset };
-};
-
-const getPagingData = async (data, page, limit) => {
-  const { count: totalItems, rows: memberList } = data;
-  const currentPage = page ? +page : 0;
-  const totalPages = Math.ceil(totalItems / limit);
-
-  return { totalItems, totalPages, currentPage, memberList };
-};
-
 /**
- * 멤버 리스트
+ * 멤버 리스트 (Get Members)
  */
 exports.getMembers = async (req, res, next) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
-    const result = errors.array();
     return res.status(400).send({
       statusCode: 400,
       message: "잘못된 요청값 입니다.",
-      error: result,
+      error: errors.array(),
     });
   }
 
-  const page = req.query.page !== "NaN" ? req.query.page : 0;
-  const size = req.query.size;
-  const { limit, offset } = getPagination(page, size);
+  const page = parseInt(req.query.page) || 0;
+  const size = parseInt(req.query.size) || 10;
   const userId = req.userId;
 
   try {
-    const result = await Member.findAndCountAll({
-      where: { userId: userId },
-      order: [["createdAt", "DESC"]],
-      attributes: [
-        "id",
-        "type",
-        "nickname",
-        "birthday",
-        "birthdayType",
-        "gender",
-        "time",
-        [
-          Sequelize.literal("(SELECT YEAR(CURRENT_DATE) - YEAR(birthday) + 1 FROM members where id = Member.id)"),
-          "age", //나이
-        ],
-        "createdAt",
-      ],
-      limit,
-      offset,
-    });
-    const response = await getPagingData(result, page, limit);
+    const totalItems = await Member.countDocuments({ userId });
+
+    const members = await Member.find({ userId })
+      .sort({ createdAt: -1 })
+      .skip(page * size)
+      .limit(size)
+      .select("id type nickname birthday birthdayType gender time createdAt");
+
+    const response = {
+      totalItems,
+      totalPages: Math.ceil(totalItems / size),
+      currentPage: page,
+      memberList: members,
+    };
 
     return res.status(200).send({
       statusCode: 200,
@@ -114,16 +86,15 @@ exports.getMembers = async (req, res, next) => {
 };
 
 /**
- * 멤버 삭제
+ * 멤버 삭제 (Delete Member)
  */
 exports.deleteMember = async (req, res, next) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
-    const result = errors.array();
     return res.status(400).send({
       statusCode: 400,
       message: "잘못된 요청값 입니다.",
-      error: result,
+      error: errors.array(),
     });
   }
 
@@ -131,9 +102,7 @@ exports.deleteMember = async (req, res, next) => {
   const memberId = req.params.id;
 
   try {
-    const member = await Member.findOne({
-      where: { userId: userId, id: memberId },
-    });
+    const member = await Member.findOne({ _id: memberId, userId });
 
     if (!member) {
       return res.status(403).send({
@@ -142,20 +111,15 @@ exports.deleteMember = async (req, res, next) => {
       });
     }
 
-    if (member && member.type === "USER") {
+    if (member.type === "USER") {
       return res.status(403).send({
         statusCode: 403,
         message: "본인에 대한 삭제 권한이 없습니다.",
       });
     }
 
-    await MemberManse.destroy({
-      where: { memberId: memberId },
-    });
-
-    await Member.destroy({
-      where: { id: memberId },
-    });
+    await MemberManse.deleteOne({ memberId });
+    await Member.deleteOne({ _id: memberId });
 
     return res.status(200).send({
       statusCode: 200,

@@ -1,32 +1,18 @@
-const Sequelize = require("sequelize");
+const mongoose = require("mongoose");
 
-module.exports = class Group extends Sequelize.Model {
-  static init(sequelize) {
-    return super.init(
-      {
-        userId: {
-          type: Sequelize.INTEGER,
-          allowNull: false,
-        },
-        name: {
-          type: Sequelize.STRING(30),
-          allowNull: false,
-        },
-      },
-      {
-        sequelize,
-        timestamps: true,
-        underscored: false,
-        modelName: "Group",
-        tableName: "groups",
-        paranoid: false,
-        charset: "utf8",
-        collate: "utf8_general_ci",
-      }
-    );
-  }
-  static associate(db) {
-    db.Group.belongsTo(db.User, { foreignKey: "userId", targetKey: "id" });
-    db.Group.hasMany(db.GroupMember, { foreignKey: "groupId", sourceKey: "id", onDelete: "cascade" });
-  }
-};
+const GroupSchema = new mongoose.Schema(
+  {
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+    name: { type: String, required: true, maxlength: 30 },
+  },
+  { timestamps: true } // Automatically adds createdAt & updatedAt
+);
+
+// Define virtual relationships
+GroupSchema.virtual("members", {
+  ref: "GroupMember",
+  localField: "_id",
+  foreignField: "groupId",
+});
+
+module.exports = mongoose.model("Group", GroupSchema);

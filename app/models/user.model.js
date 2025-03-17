@@ -1,36 +1,24 @@
-const Sequelize = require("sequelize");
+const mongoose = require("mongoose");
 
-module.exports = class User extends Sequelize.Model {
-  static init(sequelize) {
-    return super.init(
-      {
-        email: {
-          type: Sequelize.STRING(100),
-          allowNull: false,
-          unique: {
-            args: true,
-            msg: "Email already in use!",
-          },
-        },
-        password: {
-          type: Sequelize.STRING(100),
-          allowNull: false,
-        },
-      },
-      {
-        sequelize,
-        timestamps: true,
-        underscored: false,
-        modelName: "User",
-        tableName: "users",
-        paranoid: false,
-        charset: "utf8",
-        collate: "utf8_general_ci",
-      }
-    );
-  }
-  static associate(db) {
-    db.User.hasMany(db.Member, { foreignKey: "userId", soruceKey: "id", onDelete: "cascade" });
-    db.User.hasMany(db.Group, { foreignKey: "userId", soruceKey: "id", onDelete: "cascade" });
-  }
-};
+const UserSchema = new mongoose.Schema(
+  {
+    email: { type: String, required: true, unique: true },
+    password: { type: String, required: true },
+  },
+  { timestamps: true } // Automatically adds createdAt & updatedAt fields
+);
+
+// Define relationships with `Member` and `Group`
+UserSchema.virtual("members", {
+  ref: "Member",
+  localField: "_id",
+  foreignField: "userId",
+});
+
+UserSchema.virtual("groups", {
+  ref: "Group",
+  localField: "_id",
+  foreignField: "userId",
+});
+
+module.exports = mongoose.model("User", UserSchema);

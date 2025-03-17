@@ -1,37 +1,37 @@
-const Sequelize = require("sequelize");
-const env = process.env.NODE_ENV || "dev";
-const config = require(__dirname + "/../configs/sequelize.config")[env];
+const mongoose = require("mongoose");
+const dotenv = require("dotenv");
 
-const Manse = require("./manse.model");
+// Load environment variables
+dotenv.config();
+
 const User = require("./user.model");
 const Member = require("./member.model");
-const MemberManse = require("./member-manse.model");
+const MemberManse = require("./memberManse.model");
+const Manse = require("./manse.model");
 const Group = require("./group.model");
-const GroupMember = require("./group-member.model");
+const GroupMember = require("./groupMember.model");
 
-const db = {};
-const sequelize = new Sequelize(config.database, config.username, config.password, config);
-db.sequelize = sequelize;
-db.Sequelize = Sequelize;
+// MongoDB Connection
+const connectDB = async () => {
+  try {
+    await mongoose.connect(process.env.MONGO_URI, {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+    });
+    console.log("✅ MongoDB Connected...");
+  } catch (err) {
+    console.error("❌ MongoDB Connection Error:", err);
+    process.exit(1);
+  }
+};
 
-db.Manse = Manse;
-db.User = User;
-db.Member = Member;
-db.MemberManse = MemberManse;
-db.Group = Group;
-db.GroupMember = GroupMember;
-
-Manse.init(sequelize);
-User.init(sequelize);
-Member.init(sequelize);
-MemberManse.init(sequelize);
-Group.init(sequelize);
-GroupMember.init(sequelize);
-
-User.associate(db);
-Member.associate(db);
-MemberManse.associate(db);
-Group.associate(db);
-GroupMember.associate(db);
-
-module.exports = db;
+// Export database models and connection function
+module.exports = {
+  connectDB,
+  User,
+  Member,
+  MemberManse,
+  Manse,
+  Group,
+  GroupMember,
+};

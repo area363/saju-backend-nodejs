@@ -1,76 +1,25 @@
-const Sequelize = require("sequelize");
+const mongoose = require("mongoose");
 
-module.exports = class MemberManse extends Sequelize.Model {
-  static init(sequelize) {
-    return super.init(
-      {
-        id: {
-          type: Sequelize.INTEGER,
-          autoIncrement: true,
-          primaryKey: true,
-        },
-        memberId: {
-          type: Sequelize.INTEGER,
-          allowNull: false,
-        },
-        bigFortuneNumber: {
-          type: Sequelize.INTEGER,
-          allowNull: false,
-        },
-        bigFortuneStartYear: {
-          type: Sequelize.INTEGER,
-          allowNull: false,
-        },
-        seasonStartTime: {
-          type: Sequelize.STRING(20),
-          allowNull: true,
-        },
-        yearSky: {
-          type: Sequelize.STRING(10),
-          allowNull: false,
-        },
-        yearGround: {
-          type: Sequelize.STRING(10),
-          allowNull: false,
-        },
-        monthSky: {
-          type: Sequelize.STRING(10),
-          allowNull: false,
-        },
-        monthGround: {
-          type: Sequelize.STRING(10),
-          allowNull: false,
-        },
-        daySky: {
-          type: Sequelize.STRING(10),
-          allowNull: false,
-        },
-        dayGround: {
-          type: Sequelize.STRING(10),
-          allowNull: false,
-        },
-        timeSky: {
-          type: Sequelize.STRING(10),
-          allowNull: true,
-        },
-        timeGround: {
-          type: Sequelize.STRING(10),
-          allowNull: true,
-        },
-      },
-      {
-        sequelize,
-        timestamps: true,
-        underscored: false,
-        modelName: "MemberManse",
-        tableName: "member_manse",
-        paranoid: false,
-        charset: "utf8",
-        collate: "utf8_general_ci",
-      }
-    );
-  }
-  static associate(db) {
-    db.MemberManse.belongsTo(db.Member, { foreignKey: "memberId", targetKey: "id" });
-  }
-};
+const MemberManseSchema = new mongoose.Schema(
+  {
+    memberId: { type: mongoose.Schema.Types.ObjectId, ref: "Member", required: true },
+    bigFortuneNumber: { type: Number, required: true },
+    bigFortuneStartYear: { type: Number, required: true },
+    seasonStartTime: { type: String },
+    heavenlyStems: {
+      year: { type: String, required: true },
+      month: { type: String, required: true },
+      day: { type: String, required: true },
+      time: { type: String },
+    },
+    earthlyBranches: {
+      year: { type: String, required: true },
+      month: { type: String, required: true },
+      day: { type: String, required: true },
+      time: { type: String },
+    },
+  },
+  { timestamps: true } // Automatically adds createdAt & updatedAt
+);
+
+module.exports = mongoose.model("MemberManse", MemberManseSchema);

@@ -1,28 +1,25 @@
-const { Group, Sequelize } = require("../models");
+const { Group, GroupMember } = require("../models");
 const { validationResult } = require("express-validator");
 
 /**
- * 그룹 추가
+ * 그룹 추가 (Add Group)
  */
 exports.addGroup = async (req, res, next) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
-    const result = errors.array();
     return res.status(400).send({
       statusCode: 400,
       message: "잘못된 요청값 입니다.",
-      error: result,
+      error: errors.array(),
     });
   }
 
-  const name = req.body.name;
+  const { name } = req.body;
   const userId = req.userId;
 
   try {
-    await Group.create({
-      userId,
-      name,
-    });
+    const group = new Group({ userId, name });
+    await group.save();
 
     return res.status(201).send({
       statusCode: 201,
@@ -33,62 +30,63 @@ exports.addGroup = async (req, res, next) => {
   }
 };
 
-const getPagination = (page, size) => {
-  const limit = size ? +size : 10;
-  const offset = page ? page * limit : 0;
-
-  return { limit, offset };
-};
-
-const getPagingData = async (data, page, limit) => {
-  const { count: totalItems, rows: groupList } = data;
-  const currentPage = page ? +page : 0;
-  const totalPages = Math.ceil(totalItems / limit);
-
-  return { totalItems, totalPages, currentPage, groupList };
-};
-
 /**
- * 그룹 리스트
+ * 그룹 리스트 (Get Groups)
  */
 exports.getGroups = async (req, res, next) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
-    const result = errors.array();
     return res.status(400).send({
       statusCode: 400,
       message: "잘못된 요청값 입니다.",
-      error: result,
+      error: errors.array(),
     });
   }
 
-  const page = req.query.page !== "NaN" ? req.query.page : 0;
-  const size = req.query.size;
-  const { limit, offset } = getPagination(page, size);
+  const page = parseInt(req.query.page) || 0;
+  const size = parseInt(req.query.size) || 10;
   const userId = req.userId;
 
   try {
-    const result = await Group.findAndCountAll({
-      where: { userId: userId },
-      order: [["createdAt", "DESC"]],
-      attributes: [
-        "id",
-        "name",
-        "createdAt",
-        [
-          Sequelize.literal("(SELECT COUNT(*) FROM group_members where groupId = Group.id)"),
-          "memberCount", //멤버 수
-        ],
-      ],
-      limit,
-      offset,
-    });
-    const response = await getPagingData(result, page, limit);
+    const totalItems = await Group.countDocuments({ userId });
+
+    const groups = await Group.aggregate([
+      { $match: { userId } },
+      {
+        $lookup: {
+          from: "groupmembers",
+          localField: "_id",
+          foreignField: "groupId",
+          as: "members",
+        },
+      },
+      {
+        $addFields: {
+          memberCount: { $size: "$members" },
+        },
+      },
+      {
+        $project: {
+          id: "$_id",
+          name: 1,
+          createdAt: 1,
+          memberCount: 1,
+        },
+      },
+      { $sort: { createdAt: -1 } },
+      { $skip: page * size },
+      { $limit: size },
+    ]);
 
     return res.status(200).send({
       statusCode: 200,
       message: "그룹 리스트 성공",
-      data: response,
+      data: {
+        totalItems,
+        totalPages: Math.ceil(totalItems / size),
+        currentPage: page,
+        groupList: groups,
+      },
     });
   } catch (err) {
     next(`${req.method} ${req.url} : ` + err);
@@ -96,27 +94,24 @@ exports.getGroups = async (req, res, next) => {
 };
 
 /**
- * 그룹 수정
+ * 그룹 수정 (Update Group)
  */
 exports.updateGroup = async (req, res, next) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
-    const result = errors.array();
     return res.status(400).send({
       statusCode: 400,
       message: "잘못된 요청값 입니다.",
-      error: result,
+      error: errors.array(),
     });
   }
 
   const userId = req.userId;
   const groupId = req.params.id;
-  const name = req.body.name;
+  const { name } = req.body;
 
   try {
-    const group = await Group.findOne({
-      where: { userId: userId, id: groupId },
-    });
+    const group = await Group.findOne({ _id: groupId, userId });
 
     if (!group) {
       return res.status(403).send({
@@ -125,12 +120,8 @@ exports.updateGroup = async (req, res, next) => {
       });
     }
 
-    await Group.update(
-      { name: name },
-      {
-        where: { id: groupId },
-      }
-    );
+    group.name = name;
+    await group.save();
 
     return res.status(200).send({
       statusCode: 200,
@@ -142,16 +133,15 @@ exports.updateGroup = async (req, res, next) => {
 };
 
 /**
- * 그룹 삭제
+ * 그룹 삭제 (Delete Group)
  */
 exports.deleteGroup = async (req, res, next) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
-    const result = errors.array();
     return res.status(400).send({
       statusCode: 400,
       message: "잘못된 요청값 입니다.",
-      error: result,
+      error: errors.array(),
     });
   }
 
@@ -159,9 +149,7 @@ exports.deleteGroup = async (req, res, next) => {
   const groupId = req.params.id;
 
   try {
-    const group = await Group.findOne({
-      where: { userId: userId, id: groupId },
-    });
+    const group = await Group.findOne({ _id: groupId, userId });
 
     if (!group) {
       return res.status(403).send({
@@ -170,9 +158,8 @@ exports.deleteGroup = async (req, res, next) => {
       });
     }
 
-    await Group.destroy({
-      where: { id: groupId },
-    });
+    await GroupMember.deleteMany({ groupId });
+    await Group.deleteOne({ _id: groupId });
 
     return res.status(200).send({
       statusCode: 200,
@@ -184,22 +171,18 @@ exports.deleteGroup = async (req, res, next) => {
 };
 
 /**
- * 그룹명 리스트
+ * 그룹명 리스트 (Get Group Names)
  */
 exports.getGroupNames = async (req, res, next) => {
   const userId = req.userId;
 
   try {
-    const result = await Group.findAll({
-      where: { userId: userId },
-      order: [["createdAt", "DESC"]],
-      attributes: ["id", "name"],
-    });
+    const groups = await Group.find({ userId }).sort({ createdAt: -1 }).select("id name");
 
     return res.status(200).send({
       statusCode: 200,
       message: "그룹명 리스트 성공",
-      data: result,
+      data: groups,
     });
   } catch (err) {
     next(`${req.method} ${req.url} : ` + err);

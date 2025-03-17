@@ -1,53 +1,29 @@
-const Sequelize = require("sequelize");
+const mongoose = require("mongoose");
 
-module.exports = class Member extends Sequelize.Model {
-  static init(sequelize) {
-    return super.init(
-      {
-        userId: {
-          type: Sequelize.INTEGER,
-          allowNull: false,
-        },
-        type: {
-          type: Sequelize.STRING(6),
-          allowNull: false,
-        },
-        nickname: {
-          type: Sequelize.STRING(30),
-          allowNull: false,
-        },
-        gender: {
-          type: Sequelize.STRING(6),
-          allowNull: false,
-        },
-        birthdayType: {
-          type: Sequelize.STRING(5),
-          allowNull: false,
-        },
-        birthday: {
-          type: Sequelize.DATEONLY,
-          allowNull: false,
-        },
-        time: {
-          type: Sequelize.STRING(10),
-          allowNull: true,
-        },
-      },
-      {
-        sequelize,
-        timestamps: true,
-        underscored: false,
-        modelName: "Member",
-        tableName: "members",
-        paranoid: false,
-        charset: "utf8",
-        collate: "utf8_general_ci",
-      }
-    );
-  }
-  static associate(db) {
-    db.Member.belongsTo(db.User, { foreignKey: "userId", targetKey: "id" });
-    db.Member.hasMany(db.GroupMember, { foreignKey: "memberId", sourceKey: "id", onDelete: "cascade" });
-    db.Member.hasOne(db.MemberManse, { foreignKey: "memberId", sourceKey: "id", onDelete: "cascade" });
-  }
-};
+const MemberSchema = new mongoose.Schema(
+  {
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+    type: { type: String, required: true },
+    nickname: { type: String, required: true },
+    gender: { type: String, required: true },
+    birthdayType: { type: String, required: true },
+    birthday: { type: Date, required: true },
+    time: { type: String },
+  },
+  { timestamps: true } // Automatically adds createdAt & updatedAt
+);
+
+// Define virtual relationships
+MemberSchema.virtual("groupMembers", {
+  ref: "GroupMember",
+  localField: "_id",
+  foreignField: "memberId",
+});
+
+MemberSchema.virtual("manse", {
+  ref: "MemberManse",
+  localField: "_id",
+  foreignField: "memberId",
+});
+
+module.exports = mongoose.model("Member", MemberSchema);
