@@ -68,11 +68,30 @@ exports.getMembers = async (req, res, next) => {
       .limit(size)
       .select("id type nickname birthday birthdayType gender time createdAt");
 
+    // Step 1: Fetch all related Manses at once
+    const manses = await Manse.find({
+      memberId: { $in: members.map((m) => m.id) },
+    });
+
+    // Step 2: Create a map to quickly find manse by memberId
+    const manseMap = new Map(manses.map((m) => [String(m.memberId), m]));
+
+    // Step 3: Build formatted member list
+    const formattedMembers = [];
+
+    for (const member of members) {
+      const manse = manseMap.get(String(member.id));
+      if (!manse) continue;
+
+      const formatted = await sajuService.convertMemberToManse(member, manse);
+      formattedMembers.push(formatted);
+    }
+
     const response = {
       totalItems,
       totalPages: Math.ceil(totalItems / size),
       currentPage: page,
-      memberList: members,
+      memberList: formattedMembers,
     };
 
     return res.status(200).send({

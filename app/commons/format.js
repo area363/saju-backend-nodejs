@@ -3,6 +3,7 @@ const sajuDataService = require("./saju-data");
 const fortuneService = require("./fortune.js");
 const minusPlusData = sajuDataService.getMinusPlus();
 const tenStarData = sajuDataService.getTenStar();
+console.log("DEBUG: Loaded tenStarData keys:", Object.keys(tenStarData));
 const koreanData = sajuDataService.convertChineseToKorean();
 const jijangganData = sajuDataService.getJijangan();
 const moment = require("moment");
@@ -139,7 +140,7 @@ exports.convertMemberToSaju = async (member, memberManse) => {
 
 //생일을 나이로 변환
 exports.convertBirthToAge = (birth) => {
-  const year = birth.split("-")[0];
+  const year = moment(birth).year();
   const currentYear = new Date().getFullYear();
   const age = currentYear - Number(year) + 1;
   return age;
@@ -161,7 +162,23 @@ exports.formatMember = (member) => {
 
 //사주 포맷
 exports.formatSaju = (saju) => {
+  if (Array.isArray(saju)) {
+    saju = saju[0]; // Take the first element
+  }
+
+  if (!saju || !saju.daySky) {
+    console.error("❌ ERROR: saju data is missing or improperly formatted.");
+    return null;
+  }
+
+  console.log("DEBUG formatSaju (after unwrap) received:", saju);
+
   const tenStar = tenStarData[saju.daySky];
+
+  if (!tenStar) {
+    console.error(`❌ ERROR: No tenStar data found for daySky: ${saju.daySky}`);
+    return null;
+  }
 
   return {
     bigFortuneNumber: saju.bigFortuneNumber,
@@ -178,17 +195,39 @@ exports.formatSaju = (saju) => {
   };
 };
 
+
+
 exports.formatChinese = (chinese, tenStar, isGround = false) => {
+  console.log(`DEBUG formatChinese input -> Chinese: ${chinese}, TenStarData:`, tenStar);
+
+  if (!tenStar || !chinese || !tenStar[chinese]) {
+    console.warn(`❌ tenStar data is missing for: ${chinese}`);
+    return {
+      chinese,
+      korean: koreanData[chinese] || null,
+      fiveCircle: null,
+      fiveCircleColor: null,
+      tenStar: null,
+      minusPlus: minusPlusData[chinese] || null,
+      jijangGan: isGround === true ? jijangganData[chinese] || null : null,
+    };
+  }
+
+  const data = tenStar[chinese];
   return {
     chinese: chinese,
     korean: koreanData[chinese],
-    fiveCircle: tenStar[chinese]["1"],
-    fiveCircleColor: this.getColor(tenStar[chinese]["1"]),
-    tenStar: tenStar[chinese]["0"],
+    fiveCircle: data["1"],
+    fiveCircleColor: this.getColor(data["1"]),
+    tenStar: data["0"],
     minusPlus: minusPlusData[chinese],
     jijangGan: isGround === true ? jijangganData[chinese] : null,
   };
 };
+
+
+
+
 
 exports.getColor = (value) => {
   color = "";

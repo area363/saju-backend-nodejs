@@ -3,12 +3,14 @@ const mongoose = require("mongoose");
 const { Manse, MemberManse } = require("../models");
 const sajuDataService = require("../commons/saju-data"); // ✅ correct path
 const moment = require("moment");
+const { convertBirthToSamju } = require("../commons/birth-to-saju");  // ✅ Correct way
 
 /**
  * 생년월일시를 사주로 변환
  */
 exports.convertBirthtimeToSaju = async (member) => {
-    const samju = await this.convertBirthToSamju(member.birthdayType, member.birthday, member.time);
+    console.log("🚀 Using convertBirthToSamju from:", require.resolve("../commons/birth-to-saju"));
+    const samju = await convertBirthToSamju(member.birthdayType, member.birthday, member.time);
     let solarDatetime;
 
     if (samju.solarDate instanceof Date) {
@@ -63,32 +65,6 @@ exports.convertBirthtimeToSaju = async (member) => {
     );
 
     return await MemberManse.findOne({ memberId: member._id });
-};
-
-exports.convertBirthToSamju = async (birthdayType, birthday, time) => {
-    if (time >= "23:30" && time <= "23:59") {
-        birthday = moment(birthday).add(1, "days").format("YYYY-MM-DD");
-    }
-    const condition = birthdayType === "SOLAR" ? { solarDate: birthday } : { lunarDate: birthday };
-    const samju = await Manse.findOne(condition);
-
-    if (samju?.season) {
-        const timeString = time || "12:00";
-        const solarDatetime = moment(`${birthday} ${timeString}`, "YYYY-MM-DD HH:mm");
-        const seasonTime = moment(samju.seasonStartTime);
-        const diff = moment.duration(solarDatetime.diff(seasonTime)).asHours();
-    
-        if (diff < 0) {
-            const prevDay = moment(birthday).subtract(1, "days").format("YYYY-MM-DD");
-            const manse = await Manse.findOne({ solarDate: prevDay });
-            if (manse) {
-                Object.assign(samju, manse.toObject());
-                samju.seasonStartTime = manse.seasonStartTime;
-            }
-        }
-    }    
-
-    return samju;
 };
 
 exports.isRightDirection = async (gender, yearSky) => {

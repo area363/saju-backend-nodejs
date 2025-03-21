@@ -11,8 +11,8 @@ exports.convertBirthtimeToSaju = async (member) => {
   const samju = await this.convertBirthToSamju(member.birthdayType, member.birthday, member.time);
 
   //(2) 생년월일시(양력) 생성
-  let solarDatetime = samju.solarDate;
-  solarDatetime = member.time ? solarDatetime + " " + member.time : solarDatetime + " 12:00:00";
+  const dateOnly = moment(samju.solarDate).format("YYYY-MM-DD");
+  const solarDatetime = moment(`${dateOnly} ${member.time || "12:00"}`, "YYYY-MM-DD HH:mm").toDate();
 
   //(3) 순행(true), 역행(false) 판단
   const direction = await this.isRightDirection(member.gender, samju.yearSky);
@@ -69,10 +69,15 @@ exports.convertBirthToSamju = async (birthdayType, birthday, time) => {
       const manse = await Manse.findOne({
         solarDate: moment(birthday).add(-1, "days").format("YYYY-MM-DD"),
       });
-
-      Object.assign(samju, manse.toObject());
+    
+      if (manse) {
+        Object.assign(samju, manse.toObject());
+        samju.seasonStartTime = manse.seasonStartTime; // ✅ Explicitly assign seasonStartTime
+      }
     }
   }
+
+  console.log("🛠 Final Samju Data:", JSON.stringify(samju, null, 2));
   return samju;
 };
 

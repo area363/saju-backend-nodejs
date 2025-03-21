@@ -78,7 +78,6 @@ exports.getGroupMemberList = async (req, res, next) => {
 
   try {
     const group = await Group.findOne({ _id: groupId, userId });
-
     if (!group) {
       return res.status(403).send({
         statusCode: 403,
@@ -97,20 +96,24 @@ exports.getGroupMemberList = async (req, res, next) => {
       .skip(page * size)
       .limit(size);
 
-    const members = groupMembers.map((gm) => {
-      const birthYear = new Date(gm.member.birthday).getFullYear();
-      return {
-        id: gm.member._id,
-        type: gm.member.type,
-        nickname: gm.member.nickname,
-        gender: gm.member.gender,
-        birthdayType: gm.member.birthdayType,
-        birthday: gm.member.birthday,
-        time: gm.member.time,
-        age: new Date().getFullYear() - birthYear + 1,
-        createdAt: gm.member.createdAt,
-      };
-    });
+    // Step 1: Collect all member IDs
+    const memberIds = groupMembers.map((gm) => gm.member._id);
+
+    // Step 2: Fetch all Manses in one query
+    const manses = await Manse.find({ memberId: { $in: memberIds } });
+    const manseMap = new Map(manses.map((m) => [String(m.memberId), m]));
+
+    // Step 3: Format each member + saju
+    const formattedMembers = [];
+
+    for (const gm of groupMembers) {
+      const member = gm.member;
+      const manse = manseMap.get(String(member._id));
+      if (!manse) continue;
+
+      const formatted = await sajuService.convertMemberToManse(member, manse);
+      formattedMembers.push(formatted);
+    }
 
     return res.status(200).send({
       statusCode: 200,
@@ -119,7 +122,7 @@ exports.getGroupMemberList = async (req, res, next) => {
         totalItems,
         totalPages: Math.ceil(totalItems / size),
         currentPage: page,
-        members,
+        members: formattedMembers,
       },
     });
   } catch (err) {
