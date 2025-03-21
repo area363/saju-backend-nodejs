@@ -24,8 +24,8 @@ router.get(
   [
     apiLimiter,
     authJwt.verifyToken(JWT_SECRET),
-    query("page").not().isEmpty().isInt(),
-    query("size").not().isEmpty().isInt(),
+    query("page").not().isEmpty().isMongoId(),
+    query("size").not().isEmpty().isMongoId(),
   ],
   groupController.getGroups
 );
@@ -61,8 +61,8 @@ router.post(
   [
     apiLimiter,
     authJwt.verifyToken(JWT_SECRET),
-    param("groupId").not().isEmpty().isInt(),
-    param("memberId").not().isEmpty().isInt(),
+    param("groupId").not().isEmpty().isMongoId(),
+    param("memberId").not().isEmpty().isMongoId(),
   ],
   groupMemberController.addMemberToGroup
 );
@@ -73,9 +73,9 @@ router.get(
   [
     apiLimiter,
     authJwt.verifyToken(JWT_SECRET),
-    param("groupId").not().isEmpty().isInt(),
-    query("page").not().isEmpty().isInt(),
-    query("size").not().isEmpty().isInt(),
+    param("groupId").not().isEmpty().isMongoId(),
+    query("page").not().isEmpty().isMongoId(),
+    query("size").not().isEmpty().isMongoId(),
   ],
   groupMemberController.getGroupMemberList
 );
@@ -86,8 +86,8 @@ router.delete(
   [
     apiLimiter,
     authJwt.verifyToken(JWT_SECRET),
-    param("groupId").not().isEmpty().isInt(),
-    param("memberId").not().isEmpty().isInt(),
+    param("groupId").not().isEmpty().isMongoId(),
+    param("memberId").not().isEmpty().isMongoId(),
   ],
   groupMemberController.removeMemberFromGroup
 );

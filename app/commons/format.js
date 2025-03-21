@@ -111,11 +111,7 @@ exports.convertMemberToSaju = async (member, memberManse) => {
 
   //****************** 현재운 ******************/
   //오늘날짜로 만세력 테이블 검색
-  const currentFortune = await Manse.findOne({
-    where: {
-      solarDate: currentDay,
-    },
-  });
+  const currentFortune = await Manse.findOne({ solarDate: currentDay });
 
   const convertedFortune = await this.formatFortune(memberManse.daySky, currentFortune);
   //현재 운

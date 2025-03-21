@@ -12,9 +12,9 @@ router.get(
   [
     apiLimiter,
     authJwt.verifyToken(JWT_SECRET),
-    param("memberId").not().isEmpty().isInt(),
-    param("bigNum").optional({ nullable: true }).isInt(),
-    param("smallNum").optional({ nullable: true }).isInt(),
+    param("memberId").not().isEmpty().isMongoId(),
+    param("bigNum").optional({ nullable: true }).isMongoId(),
+    param("smallNum").optional({ nullable: true }).isMongoId(),
   ],
   manseController.calculate
 );

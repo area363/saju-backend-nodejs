@@ -25,7 +25,7 @@ router.post(
       .not()
       .isEmpty()
       .isLength({ min: 8, max: 8 })
-      .isInt()
+      .isMongoId()
       .matches(/^(19[0-9][0-9]|20\d{2}|2100)(0[0-9]|1[0-2])(0[1-9]|[1-2][0-9]|3[0-1])$/),
     body("time")
       .optional()

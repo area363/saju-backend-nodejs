@@ -1,7 +1,7 @@
+const mongoose = require("mongoose");
 const { Manse, MemberManse } = require("../models");
 const sajuDataService = require("./saju-data");
 const moment = require("moment");
-const { Op } = require("sequelize");
 
 /**
  * 생년월일시를 사주로 변환
@@ -27,69 +27,50 @@ exports.convertBirthtimeToSaju = async (member) => {
   const timeJu = await this.getTimePillar(samju.daySky, member.time);
 
   //(7) 멤버-만세력 테이블에 대운수 및 시주 저장 & 수정
-  await MemberManse.upsert({
-    memberId: member.id, //key 값
-    yearSky: samju.yearSky,
-    yearGround: samju.yearGround,
-    monthSky: samju.monthSky,
-    monthGround: samju.monthGround,
-    daySky: samju.daySky,
-    dayGround: samju.dayGround,
-    timeSky: timeJu.timeSky,
-    timeGround: timeJu.timeGround,
-    bigFortuneNumber: bigFortune.bigFortuneNumber,
-    bigFortuneStartYear: bigFortune.bigFortuneStart,
-    seasonStartTime: samju.seasonStartTime,
-  });
+  await MemberManse.findOneAndUpdate(
+    { memberId: member._id },  // ✅ Use `_id` instead of `id`
+    {
+      yearSky: samju.yearSky,
+      yearGround: samju.yearGround,
+      monthSky: samju.monthSky,
+      monthGround: samju.monthGround,
+      daySky: samju.daySky,
+      dayGround: samju.dayGround,
+      timeSky: timeJu.timeSky,
+      timeGround: timeJu.timeGround,
+      bigFortuneNumber: bigFortune.bigFortuneNumber,
+      bigFortuneStartYear: bigFortune.bigFortuneStart,
+      seasonStartTime: samju.seasonStartTime,
+    },
+    { upsert: true, new: true }
+  );
 };
-
 /**
  * 생년월일을 삼주로 변환
  * 절입일 예외처리 : 시간 미입력시 12:00
  */
 exports.convertBirthToSamju = async (birthdayType, birthday, time) => {
-  // 23:30 ~ 23:59 자시에 태어난 경우 다음날로 처리
-  // 1987.02.13 00:30분  (계사일주 - 임자시)
-  // 1987.02.13 23:40분  (갑오일주 - 갑자시)
   const birthtime = time === null ? "12:00" : time;
   if (time >= "23:30" && time <= "23:59") {
     birthday = moment(birthday).add(1, "days").format("YYYY-MM-DD");
   }
 
-  const condition =
-    birthdayType === "SOLAR"
-      ? {
-          solarDate: birthday, //양력
-        }
-      : {
-          lunarDate: birthday, //음력
-        };
+  const condition = birthdayType === "SOLAR" ? { solarDate: birthday } : { lunarDate: birthday };
 
-  const samju = await Manse.findOne({
-    where: condition,
-  });
+  const samju = await Manse.findOne(condition);
 
   //절입일인 경우
   if (samju.season) {
-    //절입시간과 생년연월시 비교
-    //1987-02-04 17:47:00 이후 입춘 - 정묘년 임인월 갑신일, 이전 병인년 신축월 계미일
-    //절입일이 생일보다 큰 경우는 하루 전 만세력을 가져와야 한다.
     const seasonTime = moment(samju.seasonStartTime);
     const solarDatetime = moment(birthday + " " + birthtime);
-    const diff = moment.duration(solarDatetime.diff(seasonTime)).asHours(); //-5.783333333333333 소수점 출력
+    const diff = moment.duration(solarDatetime.diff(seasonTime)).asHours(); 
 
     if (diff < 0) {
       const manse = await Manse.findOne({
-        where: {
-          solarDate: moment(birthday).add(-1, "days").format("YYYY-MM-DD"),
-        },
+        solarDate: moment(birthday).add(-1, "days").format("YYYY-MM-DD"),
       });
-      samju.yearSky = manse.yearSky;
-      samju.yearGround = manse.yearGround;
-      samju.monthSky = manse.monthSky;
-      samju.monthGround = manse.monthGround;
-      samju.daySky = manse.daySky;
-      samju.dayGround = manse.dayGround;
+
+      Object.assign(samju, manse.toObject());
     }
   }
   return samju;
@@ -116,17 +97,8 @@ exports.isRightDirection = async (gender, yearSky) => {
  * 2월 13일이 역행인 경우 2월 4일(입춘)을 가져온다.
  */
 exports.getSeasonStartTime = async (direction, solarDatetime) => {
-  const condition1 = direction === true ? { [Op.gte]: solarDatetime } : { [Op.lte]: solarDatetime };
-  const condition2 = direction === true ? "ASC" : "DESC";
-
-  const manse = await Manse.findOne({
-    where: {
-      seasonStartTime: condition1,
-    },
-    order: [["solarDate", condition2]],
-  });
-
-  return moment(manse.seasonStartTime);
+  const condition1 = direction ? { seasonStartTime: { $gte: solarDatetime } } : { seasonStartTime: { $lte: solarDatetime } };
+  return await Manse.findOne(condition1).sort({ solarDate: direction ? 1 : -1 });
 };
 
 /**
