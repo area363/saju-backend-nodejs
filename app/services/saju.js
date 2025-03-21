@@ -8,103 +8,137 @@ const moment = require("moment");
  * 생년월일시를 사주로 변환
  */
 exports.convertBirthtimeToSaju = async (member) => {
-  const samju = await this.convertBirthToSamju(member.birthdayType, member.birthday, member.time);
-  let solarDatetime = samju.solarDate + " " + (member.time || "12:00:00");
-  const direction = await this.isRightDirection(member.gender, samju.yearSky);
-  const seasonTime = await this.getSeasonStartTime(direction, solarDatetime);
-  const bigFortune = await this.getBigFortuneNumber(direction, seasonTime, moment(solarDatetime));
-  const timeJu = await this.getTimePillar(samju.daySky, member.time);
+    const samju = await this.convertBirthToSamju(member.birthdayType, member.birthday, member.time);
+    let solarDatetime;
 
-  await MemberManse.findOneAndUpdate(
-    { memberId: member._id || new mongoose.Types.ObjectId() },
-    {
-      yearSky: samju.yearSky,
-      yearGround: samju.yearGround,
-      monthSky: samju.monthSky,
-      monthGround: samju.monthGround,
-      daySky: samju.daySky,
-      dayGround: samju.dayGround,
-      timeSky: timeJu.timeSky,
-      timeGround: timeJu.timeGround,
-      bigFortuneNumber: bigFortune.bigFortuneNumber,
-      bigFortuneStartYear: bigFortune.bigFortuneStart,
-      seasonStartTime: samju.seasonStartTime,
-    },
-    { upsert: true, new: true }
-  );
+    if (samju.solarDate instanceof Date) {
+        const time = member.time || "12:00";
+        const formatted = moment(samju.solarDate).format("YYYY-MM-DD") + " " + time;
+        solarDatetime = moment(formatted, "YYYY-MM-DD HH:mm").toDate();
+    } else {
+        // fallback in case solarDate is string
+        const formatted = moment(samju.solarDate, "YYYY-MM-DD").format("YYYY-MM-DD") + " " + (member.time || "12:00");
+        solarDatetime = moment(formatted, "YYYY-MM-DD HH:mm").toDate();
+    }
 
-  return await MemberManse.findOne({ memberId: member._id });
+
+    const direction = await this.isRightDirection(member.gender, samju.yearSky);
+    const seasonTime = await this.getSeasonStartTime(direction, solarDatetime);
+    const bigFortune = await this.getBigFortuneNumber(direction, seasonTime, moment(solarDatetime));
+    const timeJu = await this.getTimePillar(samju.daySky, member.time);
+
+    console.log("📦 Saving MemberManse:", {
+        memberId: member._id || "new ObjectId()",
+        yearSky: samju.yearSky,
+        yearGround: samju.yearGround,
+        monthSky: samju.monthSky,
+        monthGround: samju.monthGround,
+        daySky: samju.daySky,
+        dayGround: samju.dayGround,
+        timeSky: timeJu.timeSky,
+        timeGround: timeJu.timeGround,
+        bigFortuneNumber: bigFortune.bigFortuneNumber,
+        bigFortuneStartYear: bigFortune.bigFortuneStart,
+        seasonStartTime: samju.seasonStartTime,
+    });
+
+
+
+    await MemberManse.findOneAndUpdate(
+        { memberId: member._id || new mongoose.Types.ObjectId() },
+        {
+            yearSky: samju.yearSky,
+            yearGround: samju.yearGround,
+            monthSky: samju.monthSky,
+            monthGround: samju.monthGround,
+            daySky: samju.daySky,
+            dayGround: samju.dayGround,
+            timeSky: timeJu.timeSky,
+            timeGround: timeJu.timeGround,
+            bigFortuneNumber: bigFortune.bigFortuneNumber,
+            bigFortuneStartYear: bigFortune.bigFortuneStart,
+            seasonStartTime: samju.seasonStartTime,
+        },
+        { upsert: true, new: true }
+    );
+
+    return await MemberManse.findOne({ memberId: member._id });
 };
 
 exports.convertBirthToSamju = async (birthdayType, birthday, time) => {
-  if (time >= "23:30" && time <= "23:59") {
-    birthday = moment(birthday).add(1, "days").format("YYYY-MM-DD");
-  }
-  const condition = birthdayType === "SOLAR" ? { solarDate: birthday } : { lunarDate: birthday };
-  const samju = await Manse.findOne(condition);
-
-  if (samju?.season) {
-    const solarDatetime = moment(birthday + " " + (time || "12:00"));
-    const seasonTime = moment(samju.seasonStartTime);
-    const diff = moment.duration(solarDatetime.diff(seasonTime)).asHours();
-
-    if (diff < 0) {
-      const prevDay = moment(birthday).subtract(1, "days").format("YYYY-MM-DD");
-      const manse = await Manse.findOne({ solarDate: prevDay });
-      Object.assign(samju, manse.toObject());
+    if (time >= "23:30" && time <= "23:59") {
+        birthday = moment(birthday).add(1, "days").format("YYYY-MM-DD");
     }
-  }
+    const condition = birthdayType === "SOLAR" ? { solarDate: birthday } : { lunarDate: birthday };
+    const samju = await Manse.findOne(condition);
 
-  return samju;
+    if (samju?.season) {
+        const timeString = time || "12:00";
+        const solarDatetime = moment(`${birthday} ${timeString}`, "YYYY-MM-DD HH:mm");
+        const seasonTime = moment(samju.seasonStartTime);
+        const diff = moment.duration(solarDatetime.diff(seasonTime)).asHours();
+    
+        if (diff < 0) {
+            const prevDay = moment(birthday).subtract(1, "days").format("YYYY-MM-DD");
+            const manse = await Manse.findOne({ solarDate: prevDay });
+            if (manse) {
+                Object.assign(samju, manse.toObject());
+                samju.seasonStartTime = manse.seasonStartTime;
+            }
+        }
+    }    
+
+    return samju;
 };
 
 exports.isRightDirection = async (gender, yearSky) => {
-  const minusPlus = sajuDataService.getMinusPlus()[yearSky];
-  return (gender === "MALE" && minusPlus === "양") || (gender === "FEMALE" && minusPlus === "음");
+    const minusPlus = sajuDataService.getMinusPlus()[yearSky];
+    return (gender === "MALE" && minusPlus === "양") || (gender === "FEMALE" && minusPlus === "음");
 };
 
 exports.getSeasonStartTime = async (direction, solarDatetime) => {
-  const query = direction
-    ? { seasonStartTime: { $gte: solarDatetime } }
-    : { seasonStartTime: { $lte: solarDatetime } };
+    const query = direction
+        ? { seasonStartTime: { $gte: solarDatetime } }
+        : { seasonStartTime: { $lte: solarDatetime } };
 
-  return await Manse.findOne(query).sort({ solarDate: direction ? 1 : -1 });
+    return await Manse.findOne(query).sort({ solarDate: direction ? 1 : -1 });
 };
 
 exports.getBigFortuneNumber = async (direction, seasonStartTime, solarDatetime) => {
-  const diffTime = direction
-    ? moment.duration(seasonStartTime.diff(solarDatetime)).asDays()
-    : moment.duration(solarDatetime.diff(seasonStartTime)).asDays();
+    const diffTime = direction
+        ? moment.duration(seasonStartTime.diff(solarDatetime)).asDays()
+        : moment.duration(solarDatetime.diff(seasonStartTime)).asDays();
 
-  let bigFortuneNumber = Math.floor(diffTime / 3);
-  if (diffTime < 4) bigFortuneNumber = 1;
-  if (Math.floor(diffTime) % 3 === 2) bigFortuneNumber += 1;
+    let bigFortuneNumber = Math.floor(diffTime / 3);
+    if (diffTime < 4) bigFortuneNumber = 1;
+    if (Math.floor(diffTime) % 3 === 2) bigFortuneNumber += 1;
 
-  const bigFortuneStart = solarDatetime.add(bigFortuneNumber, "years").format("YYYY");
-  return { bigFortuneNumber, bigFortuneStart };
+    const bigFortuneStart = moment(solarDatetime).add(bigFortuneNumber, "years").year(); // ← use moment to safely get number
+    return { bigFortuneNumber, bigFortuneStart };
 };
 
+
 exports.getTimePillar = (daySky, time) => {
-  let timeSky = null, timeGround = null;
+    let timeSky = null, timeGround = null;
 
-  if (time) {
-    const timeJuData = sajuDataService.getTimeJuData();
-    const timeJuData2 = sajuDataService.getTimeJuData2();
-    let index = null;
+    if (time) {
+        const timeJuData = sajuDataService.getTimeJuData();
+        const timeJuData2 = sajuDataService.getTimeJuData2();
+        let index = null;
 
-    for (const key in timeJuData) {
-      const [start, end] = timeJuData[key];
-      if ((time >= start && time <= end) || (key === "0" && (time >= "23:30" || time <= "01:29"))) {
-        index = key;
-        break;
-      }
+        for (const key in timeJuData) {
+            const [start, end] = timeJuData[key];
+            if ((time >= start && time <= end) || (key === "0" && (time >= "23:30" || time <= "01:29"))) {
+                index = key;
+                break;
+            }
+        }
+
+        if (index) {
+            timeSky = timeJuData2[daySky][index][0];
+            timeGround = timeJuData2[daySky][index][1];
+        }
     }
 
-    if (index) {
-      timeSky = timeJuData2[daySky][index][0];
-      timeGround = timeJuData2[daySky][index][1];
-    }
-  }
-
-  return { timeSky, timeGround };
+    return { timeSky, timeGround };
 };

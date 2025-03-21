@@ -15,22 +15,14 @@ router.post(
   "/signup",
   [
     apiLimiter,
-    body("email").not().isEmpty().isEmail(),
-    body("password").not().isEmpty().isLength({ min: 4, max: 100 }),
-    body("type").not().isIn(["USER", "MEMBER"]),
-    body("nickname").not().isEmpty().isLength({ min: 2, max: 30 }),
-    body("gender").not().isEmpty().isIn(["MALE", "FEMALE"]),
-    body("birthdayType").not().isEmpty().isIn(["SOLAR", "LUNAR"]),
-    body("birthday")
-      .not()
-      .isEmpty()
-      .isLength({ min: 8, max: 8 })
-      .isMongoId()
-      .matches(/^(19[0-9][0-9]|20\d{2}|2100)(0[0-9]|1[0-2])(0[1-9]|[1-2][0-9]|3[0-1])$/),
-    body("time")
-      .optional()
-      .isLength({ min: 0, max: 4 })
-      .matches(/(0[0-9]|1[0-9]|2[0-3])(0[0-9]|[1-5][0-9])$/),
+    body("email").isEmail(),
+    body("password").isLength({ min: 6 }),
+    body("type").isIn(["USER", "MEMBER"]),
+    body("nickname").notEmpty(),
+    body("gender").isIn(["MALE", "FEMALE"]),
+    body("birthday").isISO8601(), // ISO format like "1991-02-06"
+    body("birthdayType").isIn(["SOLAR", "LUNAR"]),
+    body("time").optional().matches(/^([01]\d|2[0-3]):?([0-5]\d)$/) // matches "12:00", "23:59", etc.
   ],
   userController.signup
 );

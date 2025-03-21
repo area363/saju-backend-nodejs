@@ -3,6 +3,7 @@ const mongoose = require("mongoose");
 const ManseSchema = new mongoose.Schema(
   {
     // Match MySQL field order & types
+    _id: { type: Number },
     solarDate: { type: Date, required: true },
     lunarDate: { type: Date, required: true },
     season: { type: String, default: null },
