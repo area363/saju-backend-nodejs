@@ -4,13 +4,13 @@ const sajuDataService = require("./saju-data.js");
  * 대운 리스트 가져오기
  */
 exports.listBigFortune = (sex, yearSky, monthSky, monthGround, bigFortuneNumber) => {
-  //순행(true), 역행(false) 판단
   const minusPlus = sajuDataService.getMinusPlus()[yearSky];
-  //남양음녀 순행, 남음여양 역행
+
+  // ✅ Fix logic: 남양/여음 → 순행, 남음/여양 → 역행
   let direction = null;
   if ((sex === "MALE" && minusPlus === "양") || (sex === "FEMALE" && minusPlus === "음")) {
     direction = true;
-  } else if ((sex === "MALE" && minusPlus === "양") || (sex === "FEMALE" && minusPlus === "음")) {
+  } else {
     direction = false;
   }
 
@@ -21,51 +21,52 @@ exports.listBigFortune = (sex, yearSky, monthSky, monthGround, bigFortuneNumber)
     monthGround: monthGround,
   };
 
-  //60갑자에서 월주 찾기
   const sixtyGapja = sajuDataService.getSixtyGapjaForBigFortuneList();
   let index = null;
-  let count = 0;
+
   for (let i in sixtyGapja) {
     if (sixtyGapja[i][0] === monthSky && sixtyGapja[i][1] === monthGround) {
-      index = i;
-      count += 1;
-      if (count === 2) {
-        break;
-      }
+      index = Number(i);
+      break;
     }
   }
 
-  let first = Number(index);
-  let last = Number(index);
+  // ✅ Fallback if 월주 not found
+  if (index === null) {
+    throw new Error(`월주 (${monthSky}${monthGround}) not found in 60갑자`);
+  }
+
+  let first = index;
   let bigFortuneNumberValue = bigFortuneNumber;
-  let count2 = 1;
+  let count = 1;
+
   if (direction === true) {
-    first += 1;
-    last += 10;
-    for (let i = first; i <= last; i++) {
-      bigFortunes[count2] = {
+    for (let i = first + 1; count <= 10; i++) {
+      const wrappedIndex = (i + 60) % 60;
+      bigFortunes[count] = {
         bigFortuneNumber: bigFortuneNumberValue,
-        monthSky: sixtyGapja[i][0],
-        monthGround: sixtyGapja[i][1],
+        monthSky: sixtyGapja[wrappedIndex][0],
+        monthGround: sixtyGapja[wrappedIndex][1],
       };
-      count2 += 1;
       bigFortuneNumberValue += 10;
+      count++;
     }
   } else {
-    first -= 1;
-    last -= 10;
-    for (let i = first; i >= last; i--) {
-      bigFortunes[count2] = {
+    for (let i = first - 1; count <= 10; i--) {
+      const wrappedIndex = (i + 60) % 60;
+      bigFortunes[count] = {
         bigFortuneNumber: bigFortuneNumberValue,
-        monthSky: sixtyGapja[i][0],
-        monthGround: sixtyGapja[i][1],
+        monthSky: sixtyGapja[wrappedIndex][0],
+        monthGround: sixtyGapja[wrappedIndex][1],
       };
-      count2 += 1;
       bigFortuneNumberValue += 10;
+      count++;
     }
   }
+
   return bigFortunes;
 };
+
 
 /**
  * 세운 리스트 가져오기

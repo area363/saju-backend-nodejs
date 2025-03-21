@@ -8,6 +8,8 @@ const JWT_SECRET = process.env.JWT_SECRET;
 
 const manseController = require("../controllers/manse.controller.js");
 const sajuService = require("../services/saju.js");
+const formatService = require("../commons/format");
+const mongoose = require("mongoose");
 
 // ✅ GET 사주 for a saved member (requires login)
 router.get(
@@ -33,7 +35,9 @@ router.post(
   ],
   async (req, res) => {
     try {
+      const tempObjectId = new mongoose.Types.ObjectId(); // 👈 create once
       const member = {
+        _id: tempObjectId,
         birthday: req.body.birthday,
         time: req.body.time || null,
         gender: req.body.gender,
@@ -43,7 +47,7 @@ router.post(
       };
 
       const memberManse = await sajuService.convertBirthtimeToSaju(member);
-      const result = await sajuService.convertMemberToSaju(member, memberManse);
+      const result = await formatService.convertMemberToSaju(member, memberManse);
 
       return res.status(200).json(result);
     } catch (err) {

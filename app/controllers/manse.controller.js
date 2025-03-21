@@ -25,8 +25,8 @@ exports.calculate = async (req, res, next) => {
       .select("id nickname gender birthdayType birthday time createdAt")
       .populate({
         path: "manse",
-        select: "bigFortuneNumber bigFortuneStartYear seasonStartTime heavenlyStems earthlyBranches",
-      });
+        select: "bigFortuneNumber bigFortuneStartYear seasonStartTime yearSky yearGround monthSky monthGround daySky dayGround timeSky timeGround",
+      });      
 
     if (!member) {
       return res.status(403).send({
@@ -35,7 +35,10 @@ exports.calculate = async (req, res, next) => {
       });
     }
 
+    console.log("🔍 member:", member);
+    console.log("🔍 memberManse:", member.manse);
     const formattedManse = await formatService.convertMemberToManse(member, member.manse, bigNum, smallNum);
+
 
     return res.status(200).send({
       statusCode: 200,
@@ -43,6 +46,6 @@ exports.calculate = async (req, res, next) => {
       data: formattedManse,
     });
   } catch (err) {
-    next(`${req.method} ${req.url} : ` + err);
+    next(err);
   }
 };

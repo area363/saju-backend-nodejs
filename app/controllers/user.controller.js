@@ -59,7 +59,7 @@ exports.signup = async (req, res, next) => {
       data: { accessToken },
     });
   } catch (err) {
-    next(`${req.method} ${req.url} : ` + err);
+    next(err);
   }
 };
 
@@ -104,7 +104,7 @@ exports.signin = async (req, res, next) => {
       data: { accessToken },
     });
   } catch (err) {
-    next(`${req.method} ${req.url} : ` + err);
+    next(err);
   }
 };
 
@@ -140,6 +140,6 @@ exports.me = async (req, res, next) => {
       data: formattedMember,
     });
   } catch (err) {
-    next(`${req.method} ${req.url} : ` + err);
+    next(err);
   }
 };

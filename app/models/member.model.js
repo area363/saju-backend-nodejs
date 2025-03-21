@@ -24,6 +24,8 @@ MemberSchema.virtual("manse", {
   ref: "MemberManse",
   localField: "_id",
   foreignField: "memberId",
+  justOne: true, // 👈 This is what fixes it
 });
+
 
 module.exports = mongoose.model("Member", MemberSchema);

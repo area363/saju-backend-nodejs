@@ -57,7 +57,15 @@ app.use((err, req, res, next) => {
       slack.slackMessage("#ff0000", "서버 에러!", `${requestIp}, ${err}:${body}`, moment().unix());
     return res.status(500).send({ statusCode: 500, message: "서버 에러!" });
   } else {
-    return res.status(500).send({ statusCode: 500, message: "서버 에러!", error: err });
+    return res.status(err.status || 500).send({
+      statusCode: err.status || 500,
+      message: err.message || "서버 에러!",
+      error: {
+        message: err.message,
+        stack: process.env.NODE_ENV !== "prod" ? err.stack : undefined
+      }
+    });
+    
   }
 });
 

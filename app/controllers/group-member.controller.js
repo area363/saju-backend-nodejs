@@ -54,7 +54,7 @@ exports.addMemberToGroup = async (req, res, next) => {
       message: "그룹에 멤버 추가 성공",
     });
   } catch (err) {
-    next(`${req.method} ${req.url} : ` + err);
+    next(err);
   }
 };
 
@@ -126,7 +126,7 @@ exports.getGroupMemberList = async (req, res, next) => {
       },
     });
   } catch (err) {
-    next(`${req.method} ${req.url} : ` + err);
+    next(err);
   }
 };
 
@@ -173,6 +173,6 @@ exports.removeMemberFromGroup = async (req, res, next) => {
       message: "그룹에서 멤버 제거 성공",
     });
   } catch (err) {
-    next(`${req.method} ${req.url} : ` + err);
+    next(err);
   }
 };

@@ -12,6 +12,10 @@ const moment = require("moment");
  * 멤버를 만세력 포맷 변환
  */
 exports.convertMemberToManse = async function (member, memberManse, clickBigFortune = null, clickSmallFortune = null) {
+  if (!memberManse?.monthSky || !memberManse?.monthGround) {
+    throw new Error("❌ monthSky or monthGround is missing in memberManse");
+  }
+
   let format = {};
   //멤버
   format["member"] = this.formatMember(member);
@@ -19,6 +23,7 @@ exports.convertMemberToManse = async function (member, memberManse, clickBigFort
   format["saju"] = this.formatSaju(memberManse);
 
   //****************** 대운 ******************/
+  console.log("🔍 memberManse before fortune calc:", memberManse);
   const fortunes = fortuneService.listBigFortune(
     member.gender,
     memberManse.yearSky,
@@ -81,11 +86,17 @@ exports.convertMemberToManse = async function (member, memberManse, clickBigFort
  */
 exports.convertMemberToSaju = async (member, memberManse) => {
   let format = {};
+
+  // 🚨 Guard clause for missing manse
+  if (!memberManse || !memberManse.monthSky || !memberManse.monthGround || !memberManse.yearSky) {
+    throw new Error(`Invalid or missing memberManse data: ${JSON.stringify(memberManse)}`);
+  }
+
   format["member"] = this.formatMember(member);
-  //사주원국
   format["saju"] = this.formatSaju(memberManse);
 
   //****************** 대운 ******************/
+  console.log("🔍 memberManse before fortune calc:", memberManse);
   const fortunes = fortuneService.listBigFortune(
     member.gender,
     memberManse.yearSky,
@@ -95,12 +106,11 @@ exports.convertMemberToSaju = async (member, memberManse) => {
   );
 
   const currentYear = moment().format("YYYY");
-  const currentMonth = moment().format("MM");
   const currentDay = moment().format("YYYY-MM-DD");
+
   const bigFortunes = this.formatBigFortune(fortunes, memberManse.daySky);
   const age = this.convertBirthToAge(member.birthday);
 
-  //올해 나이 기준으로 현재 대운 계산
   let index = null;
   for (const i in bigFortunes) {
     if (i === 0) continue;
@@ -110,12 +120,9 @@ exports.convertMemberToSaju = async (member, memberManse) => {
     }
   }
 
-  //****************** 현재운 ******************/
-  //오늘날짜로 만세력 테이블 검색
   const currentFortune = await Manse.findOne({ solarDate: currentDay });
-
   const convertedFortune = await this.formatFortune(memberManse.daySky, currentFortune);
-  //현재 운
+
   format["fortune"] = {
     bigFortune: bigFortunes[String(index)],
     smallFortune: {
@@ -137,6 +144,7 @@ exports.convertMemberToSaju = async (member, memberManse) => {
 
   return format;
 };
+
 
 //생일을 나이로 변환
 exports.convertBirthToAge = (birth) => {

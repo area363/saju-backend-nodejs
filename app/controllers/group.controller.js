@@ -26,7 +26,7 @@ exports.addGroup = async (req, res, next) => {
       message: "그룹 추가 성공",
     });
   } catch (err) {
-    next(`${req.method} ${req.url} : ` + err);
+    next(err);
   }
 };
 
@@ -89,7 +89,7 @@ exports.getGroups = async (req, res, next) => {
       },
     });
   } catch (err) {
-    next(`${req.method} ${req.url} : ` + err);
+    next(err);
   }
 };
 
@@ -128,7 +128,7 @@ exports.updateGroup = async (req, res, next) => {
       message: "그룹 수정 성공",
     });
   } catch (err) {
-    next(`${req.method} ${req.url} : ` + err);
+    next(err);
   }
 };
 
@@ -166,7 +166,7 @@ exports.deleteGroup = async (req, res, next) => {
       message: "그룹 삭제 성공",
     });
   } catch (err) {
-    next(`${req.method} ${req.url} : ` + err);
+    next(err);
   }
 };
 
@@ -185,6 +185,6 @@ exports.getGroupNames = async (req, res, next) => {
       data: groups,
     });
   } catch (err) {
-    next(`${req.method} ${req.url} : ` + err);
+    next(err);
   }
 };

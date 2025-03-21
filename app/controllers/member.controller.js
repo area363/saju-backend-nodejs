@@ -38,7 +38,7 @@ exports.addMember = async (req, res, next) => {
       message: "멤버 추가 성공",
     });
   } catch (err) {
-    next(`${req.method} ${req.url} : ` + err);
+    next(err);
   }
 };
 
@@ -100,7 +100,7 @@ exports.getMembers = async (req, res, next) => {
       data: response,
     });
   } catch (err) {
-    next(`${req.method} ${req.url} : ` + err);
+    next(err);
   }
 };
 
@@ -145,6 +145,6 @@ exports.deleteMember = async (req, res, next) => {
       message: "멤버 삭제 성공",
     });
   } catch (err) {
-    next(`${req.method} ${req.url} : ` + err);
+    next(err);
   }
 };

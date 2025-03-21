@@ -27,10 +27,10 @@ exports.convertBirthtimeToSaju = async (member) => {
     const direction = await this.isRightDirection(member.gender, samju.yearSky);
     const seasonTime = await this.getSeasonStartTime(direction, solarDatetime);
     const bigFortune = await this.getBigFortuneNumber(direction, seasonTime, moment(solarDatetime));
-    const timeJu = await this.getTimePillar(samju.daySky, member.time);
+    const timeJu = this.getTimePillar(samju.daySky, member.time);
 
     console.log("📦 Saving MemberManse:", {
-        memberId: member._id || "new ObjectId()",
+        memberId: member._id || new mongoose.Types.ObjectId(),
         yearSky: samju.yearSky,
         yearGround: samju.yearGround,
         monthSky: samju.monthSky,
@@ -96,25 +96,41 @@ exports.getBigFortuneNumber = async (direction, seasonStartTime, solarDatetime) 
 
 exports.getTimePillar = (daySky, time) => {
     let timeSky = null, timeGround = null;
-
+  
     if (time) {
-        const timeJuData = sajuDataService.getTimeJuData();
-        const timeJuData2 = sajuDataService.getTimeJuData2();
-        let index = null;
-
-        for (const key in timeJuData) {
-            const [start, end] = timeJuData[key];
-            if ((time >= start && time <= end) || (key === "0" && (time >= "23:30" || time <= "01:29"))) {
-                index = key;
-                break;
-            }
+      const timeJuData = sajuDataService.getTimeJuData();
+      const timeJuData2 = sajuDataService.getTimeJuData2();
+  
+      console.log("🧪 timeJuData:", timeJuData);
+      console.log("🧪 timeJuData2:", timeJuData2);
+  
+      let index = null;
+  
+      for (const key in timeJuData) {
+        const value = timeJuData[key];
+  
+        // Safely extract start and end from object keys '0' and '1'
+        const start = value['0'];
+        const end = value['1'];
+  
+        console.log("🔍 key:", key, "| start:", start, "| end:", end);
+  
+        if (
+          (time >= start && time <= end) ||
+          (key === "0" && (time >= "23:30" || time <= "01:29"))
+        ) {
+          index = key;
+          break;
         }
-
-        if (index) {
-            timeSky = timeJuData2[daySky][index][0];
-            timeGround = timeJuData2[daySky][index][1];
-        }
+      }
+  
+      if (index && timeJuData2[daySky] && timeJuData2[daySky][index]) {
+        timeSky = timeJuData2[daySky][index]['0'];
+        timeGround = timeJuData2[daySky][index]['1'];
+      }
     }
-
+  
     return { timeSky, timeGround };
-};
+  };
+  
+  
