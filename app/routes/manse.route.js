@@ -1,5 +1,5 @@
 const express = require("express");
-const { param, query } = require("express-validator");
+const { param, query, body } = require("express-validator");
 const router = express.Router();
 
 const authJwt = require("./verify-jwt-token");

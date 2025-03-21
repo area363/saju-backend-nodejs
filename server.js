@@ -14,7 +14,9 @@ const manseRouter = require("./app/routes/manse.route");
 // ✅ Swagger
 const swaggerUi = require("swagger-ui-express");
 const YAML = require("yamljs");
-const swaggerDocument = YAML.load("./openapi_corrected.yaml");
+const swaggerDocument = YAML.load("./openapi.yaml");
+const { connectDB } = require("./app/models");
+const seedMansesIfEmpty = require("./app/utils/seedManses"); // ✅ Add this line
 
 const app = express();
 app.set("port", process.env.PORT || 3000);
@@ -58,6 +60,17 @@ app.use((err, req, res, next) => {
     return res.status(500).send({ statusCode: 500, message: "서버 에러!", error: err });
   }
 });
+
+// MongoDB 연결
+connectDB()
+  .then(async () => {
+    console.log("✅ MongoDB Connected.");
+    await seedMansesIfEmpty(); // ✅ Seed if empty
+  })
+  .catch((err) => {
+    console.error("❌ MongoDB Connection Error:", err);
+    process.exit(1);
+  });
 
 app.listen(app.get("port"), "0.0.0.0", () => {
   console.log(app.get("port"), "번 포트에서 대기중");
