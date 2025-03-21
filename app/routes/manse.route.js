@@ -1,5 +1,5 @@
 const express = require("express");
-const { body, param } = require("express-validator");
+const { param, query } = require("express-validator");
 const router = express.Router();
 
 const authJwt = require("./verify-jwt-token");
@@ -11,13 +11,13 @@ const sajuService = require("../services/saju.js");
 
 // ✅ GET 사주 for a saved member (requires login)
 router.get(
-  "/members/:memberId/fortune/:bigNum?/:smallNum?",
+  "/members/:memberId/fortune",
   [
     apiLimiter,
     authJwt.verifyToken(JWT_SECRET),
     param("memberId").not().isEmpty().isMongoId(),
-    param("bigNum").optional().isInt(),
-    param("smallNum").optional().isInt()
+    query("bigNum").optional().isInt(),
+    query("smallNum").optional().isInt()
   ],
   manseController.calculate
 );

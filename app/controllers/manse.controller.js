@@ -17,8 +17,8 @@ exports.calculate = async (req, res, next) => {
 
   const userId = req.params.userId ? req.params.userId : req.userId;
   const memberId = req.params.memberId;
-  const bigNum = req.params.bigNum;
-  const smallNum = req.params.smallNum;
+  const bigNum = req.query.bigNum;
+  const smallNum = req.query.smallNum;
 
   try {
     const member = await Member.findOne({ _id: memberId, userId })
